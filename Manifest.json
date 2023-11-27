@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "See More; Say More",
+  "version": "0.1.0",
+  "description": "Practice French by surfing the web in 'français.' Highlight unfamiliar words to log them for later review, translate them back to English, or create an example of the word used in a sentence..",
+
+  "permissions": ["activeTab", "storage", "contextMenus"],
+
+  "action": {
+    "default_popup": "popup.html"
+  },
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}
