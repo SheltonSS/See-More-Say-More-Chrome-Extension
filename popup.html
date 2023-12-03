@@ -1,14 +1,27 @@
+<!-- popup.html -->
+
 <!DOCTYPE html>
 <html>
 
+<head>
+  <title>Extension Popup</title>
+  <!-- Other head elements -->
+  <link rel="stylesheet" type="text/css" href="popup.css">
+  <script src="popup.js"></script>
+</head>
+
 <body>
+  
   <button id="French">French</button>
   <button id="English">English</button>
-  <!-- <button id="Spanish">Spanish</button> -->
   <button id="Study">Study</button>
+  <button id="View">View Study Book</button>
+  <button id="Clear">Clear Study Book</button>
 
-
-  <script src="popup.js"></script>
+  <!-- Your popup content -->
+  <div id="displayDataContainer">
+    <ul id="displayData"></ul>
+  </div>
 </body>
 
 </html>

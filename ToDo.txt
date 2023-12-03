@@ -1,4 +1,3 @@
 Features to add:
-    1) text bubble for showing information near location of rightclick
     2) use azure chat gpt to form a example of highlighted text
     3) show list of words to study

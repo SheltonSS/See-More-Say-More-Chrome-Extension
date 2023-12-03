@@ -1,7 +1,12 @@
+// require('dotenv').config();
+// const apiKey = process.env.API_KEY;
+
 let currentLanguage = "en"; // Default language is English
-let base_language = "en";
-let studykey = "Study"; 
-// let value = "Value"
+let base_language = "fr";
+let studykey = "Study";
+// Example code in content.js or your UI script
+let boxcnt = 0;
+
 //sets the lang (ex input: en(english),fr(french),es(spanish)) + starts translating the page
 function setLanguage(language) {
   base_language = currentLanguage;
@@ -11,7 +16,7 @@ function setLanguage(language) {
 }
 // translates changes to page
 async function translateTextNode(textNode) {
-  const key = "f8a729fefc4d4f25a7285f4578b74d29"; // Replace with your actual API key
+  const key =  "f8a729fefc4d4f25a7285f4578b74d29"; // Replace with your actual API key
   const location = "eastus";
   const originalText = textNode.nodeValue.trim();
 
@@ -53,18 +58,21 @@ function observeMutations() {
     mutations.forEach((mutation) => {
       if (mutation.type === "childList") {
         mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === Node.TEXT_NODE) {
-            translateTextNode(node, currentLanguage);
-          } else if (node.nodeType === Node.ELEMENT_NODE) {
-            const walker = document.createTreeWalker(
-              node,
-              NodeFilter.SHOW_TEXT,
-              null,
-              false
-            );
+          // Check if the node has a class that excludes translation
+          if (!node.classList.contains("no-translate")) {
+            if (node.nodeType === Node.TEXT_NODE) {
+              translateTextNode(node, currentLanguage);
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+              const walker = document.createTreeWalker(
+                node,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+              );
 
-            while (walker.nextNode()) {
-              translateTextNode(walker.currentNode, currentLanguage);
+              while (walker.nextNode()) {
+                translateTextNode(walker.currentNode, currentLanguage);
+              }
             }
           }
         });
@@ -107,75 +115,106 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 });
 
 // listner for the highlighted text
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.selectedText) {
+    selectedText = message.selectedText;
     if (message.action === "translateBTB") {
-      console.log(message.selectedText);
-      console.log(translateSentence(message.selectedText, "en"));
-
+      translatedText = await translateSentence(selectedText);
+      spawnBox(translatedText);
     } else if (message.action === "Store") {
-      console.log(message.selectedText);
+      console.log(selectedText);
+      const translated_sentence = await translateSentence(selectedText);
+
+      // Define variables outside the if statement
+      let studykey, storedSentence;
+
       // Store text
-      chrome.storage.local.set({ studykey: message.selectedText }, function() {
-        console.log('Data saved to local storage');
+      if ((currentLanguage == "en")) {
+        studykey = selectedText; // the word in another language
+        storedSentence = translated_sentence;
+      } else {
+        studykey = translated_sentence; // the word in learning lang
+        storedSentence = selectedText;
+      }
+
+      // Save to local storage
+      await new Promise((resolve, reject) => {
+        chrome.storage.local.set({ [studykey]: storedSentence }, () => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            console.log("Data saved to local storage");
+            resolve();
+          }
+        });
       });
 
-      
+      // Display notification box
+      spawnBox("Added to your study book");
+
+      // Log all data from local storage
+      const data = await getAllDataFromLocalStorage();
+      console.log("All data from local storage:", data);
     } else if (message.action === "In_a_Sentence") {
       // console.log(message.selectedText);
       // console.log(translateSentence(message.selectedText,"en"));
+    } else if (message.action === "clear_local_storage") { 
+      chrome.storage.local.clear(function() {
+        console.log('Local storage cleared');
+      });
     }
   }
 });
 
-// function translateSelectedText(selectedText) {
-//   // Implement translation logic for the selected text as needed
-//   console.log(`Translating selected text: ${selectedText}`);
-//   // You can use the translateTextNode function or any other logic here
-// }
-//PT2 translate highlighted text to base languge (English for example)===============================================================
-//Attempt 3==============
-// Function to handle the context menu item click
+//spawn infobox
+function spawnBox(txttodisplay) {
+  // div element for the box
+  const box = document.createElement("div");
 
-// Listen for messages from the background script
-// chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-//   console.log("waiting for request ");
+  // Style
+  box.style.position = "fixed";
+  box.style.bottom = "5px"; //  bottom position
+  box.style.right = "10px"; //  right position
 
-//   if (request.action === "translateText") {
-//     console.log("request reiceverd ");
-//     // Handle translation of selected text
-//     translateSelectedText(request.selectedText);
-//   }
-// });
+  // max width
+  const maxWidth = 300; // Change the maximum width as needed
+  box.style.maxWidth = maxWidth + "px";
 
-//Attempt 2==================
-// // Function to translate highlighted text back to English
-// async function translateBackToEnglish(highlightedText) {
-//   console.log("back to english...");
-//   const key = "f8a729fefc4d4f25a7285f4578b74d29"; // Replace with your actual API key
-//   const location = "eastus";
+  // default height
+  let defaultHeight = 25;
 
-//   const response = await fetch(
-//     `https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&from=${currentLanguage}&to=${base_language}`,
-//     {
-//       method: "POST",
-//       headers: {
-//         "Ocp-Apim-Subscription-Key": key,
-//         "Ocp-Apim-Subscription-Region": location,
-//         "Content-Type": "application/json",
-//       },
-//       body: JSON.stringify([{ Text: highlightedText }]),
-//     }
-//   );
+  // span element creation for the text with a specified color
+  const spanElement = document.createElement("span");
+  spanElement.style.color = "white"; //  color of txt
 
-//   // if (response.ok) {
-//     const jsonResponse = await response.json();
-//     const translatedText = jsonResponse[0].translations[0].text;
-//     console.log(translatedText);
-// }
-//Test===============================================================
-async function translateSentence(sentence, targetLanguage) {
-  const key = "f8a729fefc4d4f25a7285f4578b74d29"; // Replace with your actual API key
+  // Create a text node and append it to the span
+  const textNode = document.createTextNode(txttodisplay); // txt content
+  spanElement.appendChild(textNode);
+
+  // Append the text node to the box
+  box.appendChild(spanElement);
+  // Append the box to the body of the document
+  box.classList.add("no-translate"); // Add class to exclude from translation
+  document.body.appendChild(box);
+
+  //  height based on content
+  const textHeight = spanElement.offsetHeight;
+  const boxHeight = Math.max(defaultHeight, textHeight);
+
+  // Style w/ dynamic dimensions
+  box.style.width = "auto"; //  width based on content
+  box.style.height = boxHeight + "px"; // height based on content
+  box.style.backgroundColor = "rgba(255, 0, 0, 0.5)"; // Red with 50% transparency
+
+  // hide the box after 3 seconds
+  setTimeout(function () {
+    box.style.display = "none";
+  }, 3000);
+}
+
+//translate a sentence/word
+async function translateSentence(sentence) {
+  const key =  "f8a729fefc4d4f25a7285f4578b74d29";
   const location = "eastus";
   const response = await fetch(
     `https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&from=${currentLanguage}&to=${base_language}`,
@@ -194,6 +233,7 @@ async function translateSentence(sentence, targetLanguage) {
     const translatedText = jsonResponse[0].translations[0].text;
     console.log("Original sentence:", sentence);
     console.log("Translated sentence:", translatedText);
+    // spawnBox(translatedText);
     return translatedText;
   } else {
     // console.error("Translation failed. HTTP status code:", response.status);
@@ -202,8 +242,39 @@ async function translateSentence(sentence, targetLanguage) {
     return null;
   }
 }
-// Example usage:
-// const sentenceToTranslate = "Hello, how are you?";
-// const targetLanguage = "fr"; // Replace with your target language code
 
-// translateSentence(sentenceToTranslate, targetLanguage);
+//openai example sentence ======================================================================================= dosent work- have to sign up for openai api key
+
+//azure txttospeach =========================================================================== doesnt work wont play sound
+// chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+//   console.log("playing sound blob");
+//   if (request.type === "playAudio") {
+//     const audioUrl = URL.createObjectURL(request.audioBlob);
+//     const audio = new Audio(audioUrl);
+//     audio.play();
+
+//     // const audio = new Audio(request.audioDataUrl);
+//     // audio.play();
+//     console.log("succesfully played sound");
+//   }
+// });
+
+//storage study system================================================================
+// Function to get all data from local storage
+function getAllDataFromLocalStorage() {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(null, (result) => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+      } else {
+        resolve(result);
+      }
+    });
+  });
+}
+// Example usage
+// getAllDataFromLocalStorage().then((data) => {
+//   console.log("All data from local storage:", data);
+// }).catch((error) => {
+//   console.error("Error retrieving data from local storage:", error);
+// });
